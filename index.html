@@ -1,0 +1,1993 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Gerador de Caixas de Mesa — Protótipo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      try {
+        var t = localStorage.getItem("tema");
+        if (t === "dark" || t === "light")
+          document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    </script>
+    <style>
+      :root {
+        box-sizing: border-box;
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        --bg: #e6e0d3;
+        --panel: #f9f9f9;
+        --panel-2: #ffffff;
+        --ink: #181823;
+        --ink-2: #655f54;
+        --line: #b2b2b2;
+        --accent: #1c4dff;
+        --accent-fill: #1c4dff;
+        --accent-soft: #dbe5f4;
+        /* cenário 3D: acompanha o tema claro/escuro, igual ao resto do site */
+        --scene-top: #727272;
+        --scene-bot: #37373a;
+        --font:
+          "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --bg: #16150f;
+          --panel: #f9f9f9;
+          --panel-2: #ffffff;
+          --ink: #f0ece4;
+          --ink-2: #9b9488;
+          --line: #b2b2b2;
+          --accent: #7aa8ee;
+          --accent-fill: #1c4dff;
+          --accent-soft: #1c2a40;
+          --scene-top: #26241e;
+          --scene-bot: #131210;
+        }
+      }
+      :root[data-theme="dark"] {
+        --bg: #16150f;
+        --panel: #202535;
+        --panel-2: #3c4756;
+        --ink: #f0ece4;
+        --ink-2: #FFFF;
+        --line: #565c72;
+        --accent: #1c4dff;
+        --accent-fill: #1c4dff;
+        --accent-soft: #1c2a40;
+        --scene-top: #727272;
+        --scene-bot: #37373a;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: inherit;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--font);
+        font-size: 14px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        display: flex;
+        flex-direction: column;
+      }
+      #app {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      /* ---------- topo: logo + nome da empresa ---------- */
+      #topbar {
+        flex: 0 0 auto;
+        height: 68px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--line);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-width: 0;
+      }
+      .brand-logo {
+        /* logo preta: no modo claro fica como está; no modo escuro o filtro
+           abaixo inverte as cores (preto -> branco) para continuar visível. */
+        height: 42px;
+        width: auto;
+        max-width: 170px;
+        object-fit: contain;
+        display: block;
+        transition: filter 0.15s ease;
+      }
+      :root[data-theme="dark"] .brand-logo {
+        filter: invert(1);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) .brand-logo {
+          filter: invert(1);
+        }
+      }
+      .brand-name {
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #btn-tema {
+        flex: 0 0 auto;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: 1px solid var(--line);
+        background: var(--panel-2);
+        color: var(--ink);
+        cursor: pointer;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #btn-tema:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      #btn-tema:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      #btn-tema svg {
+        width: 20px;
+        height: 20px;
+        display: block;
+      }
+      #btn-tema .i-sol {
+        display: none;
+      }
+      :root[data-theme="dark"] #btn-tema .i-sol {
+        display: block;
+      }
+      :root[data-theme="dark"] #btn-tema .i-lua {
+        display: none;
+      }
+
+      /* ---------- painel de controle ---------- */
+      #side {
+        width: 320px;
+        flex: 0 0 320px;
+        background: var(--panel);
+        border-right: 1px solid var(--line);
+        overflow-y: auto;
+        padding: 18px 18px 40px;
+      }
+      #side h1 {
+        font-size: 19px;
+        font-weight: 700;
+        margin: 0 0 2px;
+        letter-spacing: -0.015em;
+      }
+      #side .sub {
+        font-size: 12px;
+        color: var(--ink-2);
+        margin: 0 0 20px;
+      }
+      .group {
+        margin-bottom: 28px;
+      }
+      .group > h2 {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        color: var(--ink);
+        margin: 0 0 12px;
+      }
+      .mods {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .mod {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        padding: 8px 9px;
+      }
+      .mod .name {
+        flex: 1;
+        font-weight: 500;
+        font-size: 13px;
+      }
+      .mod .w {
+        font-size: 11px;
+        color: var(--ink-2);
+        font-variant-numeric: tabular-nums;
+      }
+      .icon-btn {
+        border: 0;
+        background: transparent;
+        color: var(--ink-2);
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 17px;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+      }
+      .icon-btn:hover {
+        color: var(--accent);
+      }
+      .icon-btn:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      .icon-btn:disabled {
+        opacity: 0.3;
+        cursor: default;
+      }
+      .icon-btn:disabled:hover {
+        color: var(--ink-2);
+      }
+      .icon-btn.del {
+        font-size: 20px;
+      }
+      .icon-btn.del:hover {
+        color: #c0392b;
+      }
+      .empty {
+        font-size: 12px;
+        color: var(--ink-2);
+        font-style: italic;
+        padding: 10px 0;
+      }
+      .add {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        margin-top: 9px;
+      }
+      .add button {
+        border: 1px dashed var(--line);
+        background: transparent;
+        color: var(--ink);
+        border-radius: 8px;
+        padding: 8px 6px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        font-family: inherit;
+        text-align: left;
+      }
+      .add button:hover {
+        border-color: var(--accent);
+        border-style: solid;
+        background: var(--accent-soft);
+      }
+      .add button:disabled {
+        pointer-events: none;
+      }
+      .row {
+        margin-bottom: 13px;
+      }
+      .row label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        margin-bottom: 5px;
+      }
+      .row label b {
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        color: var(--accent);
+      }
+      input[type="range"] {
+        width: 100%;
+        accent-color: var(--accent);
+        margin: 0;
+      }
+      .swatches {
+        display: flex;
+        gap: 7px;
+        flex-wrap: wrap;
+      }
+      .sw {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        border: 2px solid var(--line);
+        cursor: pointer;
+        padding: 0;
+      }
+      .sw[aria-pressed="true"] {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px var(--accent-soft);
+      }
+      /* ---------- upload de logo ---------- */
+      .logo-drop {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        border: 1px dashed var(--line);
+        background: transparent;
+        color: var(--ink);
+        border-radius: 9px;
+        padding: 11px 12px;
+        font-size: 12.5px;
+        font-weight: 500;
+        cursor: pointer;
+        font-family: inherit;
+        text-align: left;
+      }
+      .logo-drop:hover,
+      .logo-drop.over {
+        border-color: var(--accent);
+        border-style: solid;
+        background: var(--accent-soft);
+      }
+      .logo-drop:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .logo-drop small {
+        display: block;
+        font-weight: 400;
+        font-size: 11px;
+        color: var(--ink-2);
+      }
+      #logo-info {
+        display: none;
+      }
+      #logo-info.on {
+        display: block;
+      }
+      .logo-file {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        padding: 8px 9px;
+        margin-bottom: 13px;
+      }
+      .logo-thumb {
+        width: 38px;
+        height: 38px;
+        flex: 0 0 38px;
+        border-radius: 6px;
+        border: 1px solid var(--line);
+        background:
+          linear-gradient(
+            45deg,
+            #d9d5cc 25%,
+            transparent 25%,
+            transparent 75%,
+            #d9d5cc 75%
+          ),
+          linear-gradient(
+            45deg,
+            #d9d5cc 25%,
+            transparent 25%,
+            transparent 75%,
+            #d9d5cc 75%
+          ),
+          #fff;
+        background-size: 10px 10px;
+        background-position:
+          0 0,
+          5px 5px;
+        object-fit: contain;
+      }
+      .logo-file .nm {
+        flex: 1;
+        min-width: 0;
+        font-size: 12px;
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .chk {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        cursor: pointer;
+        margin-bottom: 8px;
+      }
+      .chk input {
+        accent-color: var(--accent);
+        width: 15px;
+        height: 15px;
+        margin: 0;
+      }
+
+      /* ---------- área principal ---------- */
+      #main {
+        flex: 1;
+        position: relative;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      #stage {
+        flex: 1;
+        position: relative;
+        min-height: 0;
+      }
+      #canvas-wrap {
+        position: absolute;
+        inset: 0;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+      }
+      #hint {
+        position: absolute;
+        left: 14px;
+        bottom: 12px;
+        font-size: 11px;
+        color: var(--ink-2);
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 4px 8px;
+        pointer-events: none;
+        opacity: 0.9;
+      }
+
+      /* ---------- mockup ---------- */
+      #btn-mockup {
+        position: absolute;
+        right: 14px;
+        top: 14px;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--accent-fill);
+        color: #fff;
+        border: 0;
+        border-radius: 9px;
+        padding: 10px 16px;
+        font: 600 13px/1 var(--font);
+        cursor: pointer;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+      }
+      #btn-mockup:hover {
+        filter: brightness(1.08);
+      }
+      #btn-mockup:focus-visible,
+      .mk-btn:focus-visible {
+        outline: 2px solid var(--ink);
+        outline-offset: 2px;
+      }
+      #btn-mockup:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+      #mk-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(20, 18, 14, 0.62);
+        padding: 20px;
+      }
+      #mk-modal.on {
+        display: flex;
+      }
+      .mk-box {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        width: min(760px, 100%);
+        max-height: 100%;
+        overflow: auto;
+        padding: 16px;
+      }
+      .mk-box h3 {
+        margin: 0 0 12px;
+        font-size: 15px;
+        font-weight: 700;
+      }
+      .mk-box img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border-radius: 9px;
+        border: 1px solid var(--line);
+      }
+      .mk-acoes {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        margin-top: 14px;
+        flex-wrap: wrap;
+      }
+      .mk-btn {
+        border: 1px solid var(--line);
+        background: var(--panel-2);
+        color: var(--ink);
+        border-radius: 9px;
+        padding: 10px 16px;
+        font: 600 13px/1 var(--font);
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+      }
+      .mk-btn:hover {
+        border-color: var(--accent);
+      }
+      .mk-btn.pri {
+        background: var(--accent-fill);
+        border-color: var(--accent-fill);
+        color: #fff;
+      }
+
+      @media (max-width: 820px) {
+        #topbar {
+          height: 58px;
+          padding: 0 14px;
+        }
+        .brand-logo {
+          height: 34px;
+          max-width: 130px;
+        }
+        .brand-name {
+          font-size: 16px;
+        }
+        #app {
+          flex-direction: column;
+        }
+        #side {
+          width: auto;
+          flex: 1 1 auto;
+          border-right: none;
+          border-top: 1px solid var(--line);
+          order: 2;
+          padding-bottom: 30px;
+        }
+        #main {
+          order: 1;
+          flex: 0 0 42vh;
+          min-height: 260px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header id="topbar">
+      <div class="brand">
+        <!-- LOGO E NOME DA EMPRESA:
+         1) troque o src abaixo pelo caminho real da sua logo preta
+         2) no modo escuro ela vira branca sozinha (ver .brand-logo no CSS acima) -->
+        <img
+          class="brand-logo"
+          alt="Logo da empresa"
+          src="../Desktop/acrilicosLogo.png"
+        />
+        <span class="brand-name">Acrílicos & Cia</span>
+      </div>
+      <button
+        type="button"
+        id="btn-tema"
+        aria-label="Alternar entre modo claro e escuro"
+        title="Alternar modo claro/escuro"
+      >
+        <svg
+          class="i-lua"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+        </svg>
+        <svg
+          class="i-sol"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="4" />
+          <path
+            d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
+          />
+        </svg>
+      </button>
+    </header>
+
+    <div id="app">
+      <aside id="side">
+        <h1>Gerador de caixas de mesa</h1>
+        <p class="sub">
+          Protótipo paramétrico — a geometria é gerada por código.
+        </p>
+
+        <div class="group">
+          <h2>Frente</h2>
+          <div class="mods" id="mods-frente"></div>
+        </div>
+
+        <div class="group">
+          <h2>Trás</h2>
+          <div class="mods" id="mods-tras"></div>
+        </div>
+
+        <div class="group">
+          <h2>Adicionar módulo</h2>
+          <div class="add" id="add-modulo"></div>
+        </div>
+
+        <div class="group">
+          <h2>Dimensões</h2>
+          <div class="row">
+            <label
+              >Altura <b><span id="v-h"></span> mm</b></label
+            >
+            <input type="range" id="s-h" min="45" max="140" step="1" />
+          </div>
+        </div>
+
+        <div class="group">
+          <h2>Acabamento</h2>
+          <div class="swatches" id="sw"></div>
+        </div>
+
+        <div class="group">
+          <h2>Logo do estabelecimento</h2>
+          <input
+            type="file"
+            id="logo-input"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif"
+            hidden
+          />
+          <button type="button" class="logo-drop" id="logo-drop">
+            <span aria-hidden="true" style="font-size: 18px; line-height: 1"
+              >&#8679;</span
+            >
+            <span
+              >Enviar logo<small
+                >PNG, JPG, SVG ou WebP · clique ou arraste</small
+              ></span
+            >
+          </button>
+          <div
+            id="logo-err"
+            class="empty"
+            style="display: none; color: #c0392b; font-style: normal"
+          ></div>
+
+          <div id="logo-info" style="margin-top: 12px">
+            <div class="logo-file">
+              <img
+                class="logo-thumb"
+                id="logo-thumb"
+                alt="Pré-visualização da logo"
+              />
+              <span class="nm" id="logo-nome"></span>
+              <button
+                class="icon-btn del"
+                id="logo-rm"
+                title="Remover logo"
+                aria-label="Remover logo"
+              >
+                &times;
+              </button>
+            </div>
+            <div class="row">
+              <label for="s-logo-tam"
+                >Tamanho <b><span id="v-logo-tam"></span>%</b></label
+              >
+              <input type="range" id="s-logo-tam" min="20" max="100" step="1" />
+            </div>
+            <div class="row">
+              <label for="s-logo-y"
+                >Posição vertical <b><span id="v-logo-y"></span></b
+              ></label>
+              <input type="range" id="s-logo-y" min="-100" max="100" step="1" />
+            </div>
+            <label class="chk"
+              ><input type="checkbox" id="chk-logo-e" /> Lateral esquerda</label
+            >
+            <label class="chk"
+              ><input type="checkbox" id="chk-logo-d" /> Lateral direita</label
+            >
+            <label class="chk"
+              ><input type="checkbox" id="chk-logo-fundo" /> Remover fundo
+              branco</label
+            >
+          </div>
+        </div>
+
+        <div class="group">
+          <h2>Visualização</h2>
+          <label
+            style="
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              font-size: 12px;
+              cursor: pointer;
+            "
+          >
+            <input
+              type="checkbox"
+              id="chk-conteudo"
+              style="accent-color: var(--accent); width: 15px; height: 15px"
+            />
+            Mostrar conteúdo dos módulos
+          </label>
+        </div>
+      </aside>
+
+      <section id="main">
+        <div id="stage">
+          <div id="canvas-wrap">
+            <div id="hint">arraste para girar · role para aproximar</div>
+          </div>
+          <button type="button" id="btn-mockup"> Gerar mockup</button>
+        </div>
+      </section>
+    </div>
+
+    <div
+      id="mk-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="mk-titulo"
+    >
+      <div class="mk-box">
+        <h3 id="mk-titulo">Seu mockup está pronto</h3>
+        <img id="mk-img" alt="Mockup do porta-guardanapo configurado" />
+        <div class="mk-acoes">
+          <button type="button" class="mk-btn" id="mk-fechar">Fechar</button>
+          <a
+            class="mk-btn pri"
+            id="mk-baixar"
+            download="mockup-porta-guardanapo.png"
+            >Baixar imagem (PNG)</a
+          >
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+      /* =========================================================================
+   1. ESTADO — uma única fonte de verdade
+   ========================================================================= */
+      const CATALOGO = {
+        // "guardanapo" aqui não é um módulo adicionável — é só um rótulo de referência.
+        // A largura do porta-guardanapo é fixa e calculada a partir do saleiro (ver Wg em gerarPecas).
+        guardanapo: { rotulo: "Guardanapo", nivel: "alto", perfil: "onda" },
+        torre: { rotulo: "Torre", largura: 48, nivel: "alto", perfil: "reto" },
+        saleiro: { rotulo: "Saleiro", largura: 48, nivel: "baixo" },
+        pimenta: { rotulo: "Pimenteiro", largura: 48, nivel: "baixo" },
+        molhos: { rotulo: "Molhos", largura: 48, nivel: "baixo" },
+        palito: { rotulo: "Palitos", largura: 48, nivel: "baixo" },
+        sache: { rotulo: "Sachês", largura: 96, nivel: "baixo" }, // sempre 2x a largura do saleiro
+      };
+      const ACABAMENTOS = [
+        { nome: "MDF cru", cor: 0xc9a46b, rough: 0.85 },
+        { nome: "Nogueira", cor: 0x6b4227, rough: 0.7 },
+        { nome: "Preto", cor: 0x2b2b2b, rough: 0.55 },
+        { nome: "Branco", cor: 0xeceae4, rough: 0.6 },
+        { nome: "Verde", cor: 0x3f5c46, rough: 0.6 },
+      ];
+
+      // cada módulo ocupa uma quantidade de "unidades" de vaga (1 unidade = largura de 1 saleiro).
+      // o sachê tem a largura de 2 saleiros, então ocupa 2 unidades das 3 disponíveis em cada lado.
+      const CAPACIDADE_LADO = 3;
+      const unidadesDe = (chave) => (chave === "sache" ? 2 : 1);
+
+      // separa a lista completa de módulos em frente/trás respeitando a capacidade em unidades de cada lado
+      // (não mais um corte fixo de "3 posições" — um sachê + um módulo pequeno já fecha um lado)
+      function dividirEmLados(modulos) {
+        const frente = [],
+          tras = [];
+        let uf = 0,
+          ut = 0;
+        modulos.forEach((k, idx) => {
+          const u = unidadesDe(k);
+          if (uf + u <= CAPACIDADE_LADO) {
+            frente.push({ k, idx });
+            uf += u;
+          } else if (ut + u <= CAPACIDADE_LADO) {
+            tras.push({ k, idx });
+            ut += u;
+          }
+          // se não couber em nenhum lado o módulo fica de fora (a interface impede que isso aconteça na hora de adicionar)
+        });
+        return { frente, tras, uf, ut };
+      }
+
+      // modelo base: até 6 módulos — os 3 primeiros vão para a frente do guardanapo, os 3 seguintes para trás
+      const cfg = {
+        modulos: ["saleiro", "pimenta", "molhos"],
+        altura: 85,
+        profundidade: 60, // fixa — não é mais ajustável pela interface
+        espessura: 4,
+        acabamento: 0,
+        mostrarConteudo: true,
+      };
+
+      // logo enviada pelo cliente — aparece na face externa das laterais do porta-guardanapo
+      const LOGO = {
+        img: null, // <img> original carregada do arquivo
+        tex: null, // THREE.CanvasTexture (gerada por processarLogo)
+        aspecto: 1, // largura / altura
+        nome: "",
+        tamanho: 70, // % do espaço disponível na lateral
+        posY: 0, // -100 (embaixo) .. 100 (em cima)
+        esq: true,
+        dir: true,
+        semFundo: false, // remove fundo branco (útil p/ JPG)
+      };
+
+      /* =========================================================================
+   2. GERADOR DE PEÇAS  —  config  ->  lista de peças planas 2D
+   Esta é a fonte única: o 3D e o plano de corte saem daqui.
+   ========================================================================= */
+      function gerarPecas(c) {
+        const t = c.espessura,
+          Dcond = c.profundidade;
+        const ALTO = c.altura,
+          BAIXO = c.altura * 0.58; // "nível" alto x baixo
+        const dIntCond = Dcond - 2 * t;
+        const alturaDe = (chave) =>
+          CATALOGO[chave].nivel === "alto" ? ALTO : BAIXO;
+
+        // divide os módulos entre frente/trás respeitando a capacidade em unidades de cada lado
+        const { frente: infoFrente, tras: infoTras } = dividirEmLados(
+          c.modulos,
+        );
+        const frente = infoFrente.map((o) => o.k),
+          tras = infoTras.map((o) => o.k);
+        const nF = frente.length,
+          nT = tras.length;
+
+        // ---- porta-guardanapo: largura FIXA, sempre igual à largura de 3 módulos de saleiro ----
+        // (soma de 3 saleiros + 4 espessuras de parede, igual à fórmula de uma fileira de 3 módulos)
+        const Wg = 3 * CATALOGO.saleiro.largura + t * 4;
+        const W = Wg; // a caixa inteira acompanha essa largura fixa
+
+        // são os MÓDULOS que se ajustam (escalam) para caber exatamente na largura do porta-guardanapo,
+        // e não o contrário — o porta-guardanapo nunca muda de tamanho.
+        const escalaDe = (lista) => {
+          if (!lista.length) return 1;
+          const somaNatural = lista.reduce(
+            (a, k) => a + CATALOGO[k].largura,
+            0,
+          );
+          const alvoSoma = Wg - t * (lista.length + 1); // espaço disponível descontando as paredes
+          return alvoSoma / somaNatural;
+        };
+        const escalaF = escalaDe(frente),
+          escalaT = escalaDe(tras);
+
+        const alturaMax = Math.max(
+          ALTO,
+          ...frente.map(alturaDe),
+          ...tras.map(alturaDe),
+        );
+
+        const pecas = [];
+        const itens = []; // conteúdo visual de cada compartimento (garrafinha, sachê, etc.) — não entra no corte
+        const O = Dcond * 0.5; // meia-espessura de referência do bloco do guardanapo (mesma profundidade dos módulos)
+        const hg = ALTO - t;
+
+        // ---- porta-guardanapo: bloco central fixo, sempre presente ----
+        pecas.push({
+          id: "guardanapo-verso",
+          nome: "Guardanapo · verso",
+          w: Wg,
+          h: hg,
+          furos: [],
+          place: { x: 0, y: t + hg / 2, z: -O + t / 2, eixo: "z", esp: t },
+        });
+        pecas.push({
+          id: "guardanapo-frente",
+          nome: "Guardanapo · frente (curva)",
+          w: Wg,
+          h: hg,
+          furos: [],
+          curva: { minH: hg * 0.42, maxH: hg },
+          place: { x: 0, y: t, z: O - t / 2, eixo: "z", esp: t },
+        });
+        pecas.push({
+          id: "guardanapo-lat-e",
+          nome: "Guardanapo · lateral",
+          w: 2 * O,
+          h: hg,
+          furos: [],
+          place: { x: -Wg / 2 + t / 2, y: t + hg / 2, z: 0, eixo: "x", esp: t },
+        });
+        pecas.push({
+          id: "guardanapo-lat-d",
+          nome: "Guardanapo · lateral",
+          w: 2 * O,
+          h: hg,
+          furos: [],
+          place: { x: Wg / 2 - t / 2, y: t + hg / 2, z: 0, eixo: "x", esp: t },
+        });
+
+        // constrói a fileira de condimentos encostada no guardanapo (sinal +1 = frente, -1 = trás)
+        // "escala" ajusta a largura de cada módulo da fileira para que a soma bata certinho com Wg
+        function construirFileira(lista, sinal, escala) {
+          if (!lista.length) return;
+          const Wrow = Wg;
+          let cursor = -Wrow / 2 + t;
+          const zInterna = sinal * (O + t / 2),
+            zExterna = sinal * (O + Dcond - t / 2),
+            zMeio = sinal * (O + Dcond / 2);
+
+          lista.forEach((chave, i) => {
+            const m = CATALOGO[chave],
+              bw = m.largura * escala,
+              Hi = alturaDe(chave),
+              hPar = Hi - t;
+            const centro = cursor + bw / 2;
+
+            pecas.push({
+              id: `int-${sinal}-${i}`,
+              nome: `Parede interna · ${m.rotulo}`,
+              w: bw,
+              h: hPar,
+              furos: [],
+              place: {
+                x: centro,
+                y: t + hPar / 2,
+                z: zInterna,
+                eixo: "z",
+                esp: t,
+              },
+            });
+            pecas.push({
+              id: `ext-${sinal}-${i}`,
+              nome: `Parede externa · ${m.rotulo}`,
+              w: bw,
+              h: hPar,
+              furos: [],
+              place: {
+                x: centro,
+                y: t + hPar / 2,
+                z: zExterna,
+                eixo: "z",
+                esp: t,
+              },
+            });
+
+            itens.push({
+              chave,
+              x: centro,
+              y: t,
+              z: zMeio,
+              largura: bw,
+              alturaDisp: hPar,
+              profDisp: dIntCond,
+            });
+
+            if (i < lista.length - 1) {
+              const h = Math.max(Hi, alturaDe(lista[i + 1])) - t;
+              // a divisória vai de fora a fora (Dcond, não dIntCond) pra fechar o canto contra as
+              // paredes interna/externa sem deixar aquele vão nos encontros das quinas
+              pecas.push({
+                id: `div-${sinal}-${i}`,
+                nome: "Divisória",
+                w: Dcond,
+                h,
+                furos: [],
+                place: {
+                  x: cursor + bw + t / 2,
+                  y: t + h / 2,
+                  z: zMeio,
+                  eixo: "x",
+                  esp: t,
+                },
+              });
+            }
+            cursor += bw + t;
+          });
+
+          const hE = alturaDe(lista[0]) - t,
+            hD = alturaDe(lista[lista.length - 1]) - t;
+          pecas.push({
+            id: `lat-e-${sinal}`,
+            nome: "Lateral",
+            w: Dcond,
+            h: hE,
+            furos: [],
+            place: {
+              x: -Wrow / 2 + t / 2,
+              y: t + hE / 2,
+              z: zMeio,
+              eixo: "x",
+              esp: t,
+            },
+          });
+          pecas.push({
+            id: `lat-d-${sinal}`,
+            nome: "Lateral",
+            w: Dcond,
+            h: hD,
+            furos: [],
+            place: {
+              x: Wrow / 2 - t / 2,
+              y: t + hD / 2,
+              z: zMeio,
+              eixo: "x",
+              esp: t,
+            },
+          });
+        }
+
+        construirFileira(frente, +1, escalaF);
+        construirFileira(tras, -1, escalaT);
+
+        // base — cobre o guardanapo + o que cada lado ocupar
+        const zMax = O + (nF ? Dcond : 0),
+          zMin = -O - (nT ? Dcond : 0);
+        const Dtotal = zMax - zMin,
+          zBaseCentro = (zMax + zMin) / 2;
+        pecas.push({
+          id: "base",
+          nome: "Base",
+          w: W,
+          h: Dtotal,
+          furos: [],
+          place: { x: 0, y: t / 2, z: zBaseCentro, eixo: "y", esp: t },
+        });
+
+        // recentraliza tudo em Z para o enquadramento da câmera ficar equilibrado
+        const shift = -zBaseCentro;
+        pecas.forEach((p) => (p.place.z += shift));
+        itens.forEach((it) => (it.z += shift));
+
+        return { pecas, W, D: Dtotal, alturaMax, itens };
+      }
+
+      /* =========================================================================
+   2b. CONTEÚDO VISUAL — representações simples do que vai dentro de cada
+   módulo (garrafinha, sachê, etc). Puramente decorativo: não entra no
+   corte, na lista de peças nem no cálculo de área de chapa.
+   ========================================================================= */
+      function criarItem(chave, wDisp, hDisp, dDisp) {
+        const g = new THREE.Group();
+        const add = (geo, color, opts = {}) => {
+          const mat = new THREE.MeshStandardMaterial({
+            color,
+            roughness: opts.rough ?? 0.35,
+            metalness: opts.metal ?? 0,
+            transparent: !!opts.opacity,
+            opacity: opts.opacity ?? 1,
+          });
+          const m = new THREE.Mesh(geo, mat);
+          g.add(m);
+          return m;
+        };
+        const raioMax = Math.min(wDisp, dDisp) * 0.32;
+
+        switch (chave) {
+          case "saleiro": {
+            // saleiro/pimenteiro de mesa — corpo + tampa furada
+            const hCorpo = hDisp * 1.12,
+              hTampa = hDisp * 0.14;
+            add(
+              new THREE.CylinderGeometry(
+                raioMax,
+                raioMax * 0.92,
+                hCorpo,
+                24,
+              ).translate(0, hCorpo / 2, 0),
+              0xf3efe6,
+              { rough: 0.15 },
+            );
+            add(
+              new THREE.CylinderGeometry(
+                raioMax * 0.98,
+                raioMax,
+                hTampa,
+                24,
+              ).translate(0, hCorpo + hTampa / 2, 0),
+              0xc7c2b8,
+              { rough: 0.4, metal: 0.3 },
+            );
+            break;
+          }
+          case "pimenta": {
+            // "pimenta gota" — garrafinha de vidro com gargalo fino
+            const rCorpo = raioMax * 1.2,
+              hCorpo = hDisp * 2.0,
+              hGargalo = hDisp * 0.84,
+              hTampa = hDisp * 0.11;
+            add(
+              new THREE.CylinderGeometry(
+                rCorpo,
+                rCorpo * 0.9,
+                hCorpo,
+                20,
+              ).translate(0, hCorpo / 2, 0),
+              0xb3391f,
+              { opacity: 0.85, rough: 0.1 },
+            );
+            add(
+              new THREE.CylinderGeometry(
+                rCorpo * 0.32,
+                rCorpo * 0.5,
+                hGargalo,
+                16,
+              ).translate(0, hCorpo + hGargalo / 2, 0),
+              0xb3391f,
+              { opacity: 0.85, rough: 0.1 },
+            );
+            add(
+              new THREE.CylinderGeometry(
+                rCorpo * 0.34,
+                rCorpo * 0.34,
+                hTampa,
+                16,
+              ).translate(0, hCorpo + hGargalo + hTampa / 2, 0),
+              0x1c1a17,
+              { rough: 0.5 },
+            );
+            break;
+          }
+          case "molhos": {
+            // garrafa tipo squeeze, bico cônico
+            const rCorpo = raioMax * 1.75,
+              hCorpo = hDisp * 1.84,
+              hBico = hDisp * 0.58;
+            add(
+              new THREE.CylinderGeometry(
+                rCorpo * 0.75,
+                rCorpo,
+                hCorpo,
+                20,
+              ).translate(0, hCorpo / 2, 0),
+              0xd9c24a,
+              { rough: 0.25 },
+            );
+            add(
+              new THREE.ConeGeometry(rCorpo * 0.28, hBico, 16).translate(
+                0,
+                hCorpo + hBico / 2,
+                0,
+              ),
+              0xd9c24a,
+              { rough: 0.25 },
+            );
+            break;
+          }
+          case "palito": {
+            // feixe de palitos dentro de um recipiente (mesmo estilo do saleiro)
+            const hRecipiente = hDisp * 1.0,
+              rRecipiente = raioMax;
+            add(
+              new THREE.CylinderGeometry(
+                rRecipiente,
+                rRecipiente * 0.92,
+                hRecipiente,
+                24,
+              ).translate(0, hRecipiente / 2, 0),
+              0xf3efe6,
+              { rough: 0.15 },
+            );
+            add(
+              new THREE.CylinderGeometry(
+                rRecipiente * 1.03,
+                rRecipiente * 0.98,
+                hRecipiente * 0.07,
+                24,
+              ).translate(0, hRecipiente - hRecipiente * 0.035, 0),
+              0xc7c2b8,
+              { rough: 0.4, metal: 0.3 },
+            );
+
+            const n = 16,
+              rPal = Math.min(wDisp, dDisp) * 0.02,
+              hPal = hDisp * 1.15;
+            for (let i = 0; i < n; i++) {
+              const ang = Math.random() * Math.PI * 2,
+                raio = rRecipiente * 0.68 * Math.random();
+              const mesh = add(
+                new THREE.CylinderGeometry(rPal, rPal, hPal, 8).translate(
+                  0,
+                  hPal / 2,
+                  0,
+                ),
+                0xe4c98a,
+                { rough: 0.6 },
+              );
+              mesh.position.set(
+                Math.cos(ang) * raio,
+                hRecipiente * 0.1,
+                Math.sin(ang) * raio,
+              );
+              mesh.rotation.z = (Math.random() - 0.5) * 0.3;
+              mesh.rotation.x = (Math.random() - 0.5) * 0.3;
+            }
+            break;
+          }
+          case "sache": {
+            // pilha de sachês (ketchup/mostarda)
+            const n = 4,
+              wPac = wDisp * 0.42,
+              hPac = hDisp * 0.32,
+              dPac = dDisp * 0.62;
+            const cores = [0xd6402c, 0xe8b23a, 0xd6402c, 0xe8b23a];
+            for (let i = 0; i < n; i++) {
+              const mesh = add(
+                new THREE.BoxGeometry(wPac, hPac, dPac).translate(
+                  0,
+                  hPac / 2 + i * hPac * 0.72,
+                  0,
+                ),
+                cores[i % cores.length],
+                { rough: 0.5 },
+              );
+              mesh.rotation.z = (i % 2 === 0 ? 1 : -1) * 0.08;
+              mesh.position.x = (i % 2 === 0 ? -1 : 1) * wDisp * 0.06;
+            }
+            break;
+          }
+          case "torre": {
+            // cartão de referência (cardápio/aviso) em pé
+            const wCard = wDisp * 0.7,
+              hCard = hDisp * 0.7;
+            add(
+              new THREE.BoxGeometry(wCard, hCard, 2).translate(0, hCard / 2, 0),
+              0xffffff,
+              { rough: 0.7 },
+            );
+            break;
+          }
+        }
+        return g;
+      }
+
+      /* =========================================================================
+   3. CENA THREE.JS
+   ========================================================================= */
+      const wrap = document.getElementById("canvas-wrap");
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+      });
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      wrap.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(38, 1, 1, 4000);
+
+      function corTema(v) {
+        return new THREE.Color(
+          getComputedStyle(document.documentElement)
+            .getPropertyValue(v)
+            .trim() || "#ccc",
+        );
+      }
+      const chao = new THREE.Mesh(
+        new THREE.CircleGeometry(900, 64).rotateX(-Math.PI / 2),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 }),
+      );
+      chao.receiveShadow = true;
+      chao.position.y = -0.4;
+      scene.add(chao);
+
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x6b6357, 0.75));
+      const key = new THREE.DirectionalLight(0xffffff, 0.95);
+      key.position.set(280, 420, 230);
+      key.castShadow = true;
+      key.shadow.mapSize.set(1024, 1024);
+      const cam = key.shadow.camera;
+      cam.left = -400;
+      cam.right = 400;
+      cam.top = 400;
+      cam.bottom = -400;
+      cam.far = 1400;
+      scene.add(key);
+      const fill = new THREE.DirectionalLight(0xffffff, 0.3);
+      fill.position.set(-260, 180, -200);
+      scene.add(fill);
+
+      const grupo = new THREE.Group();
+      scene.add(grupo);
+
+      let material = null;
+      function atualizarMaterial() {
+        const a = ACABAMENTOS[cfg.acabamento];
+        if (!material) material = new THREE.MeshStandardMaterial();
+        material.color.setHex(a.cor);
+        material.roughness = a.rough;
+        material.metalness = 0.02;
+      }
+
+      /* ---- constrói a geometria de uma peça (retângulo + furos, extrudado) ---- */
+      function geoDaPeca(p) {
+        const { w, h, furos, curva } = p,
+          esp = p.place.esp;
+        let geo;
+        if (curva) {
+          // contorno com o topo em curva (mais baixo no centro) — efeito porta-guardanapo
+          const w2 = w / 2,
+            s = new THREE.Shape();
+          s.moveTo(-w2, 0);
+          s.lineTo(w2, 0);
+          s.lineTo(w2, curva.maxH);
+          s.quadraticCurveTo(0, 2 * curva.minH - curva.maxH, -w2, curva.maxH);
+          s.closePath();
+          geo = new THREE.ExtrudeGeometry(s, {
+            depth: esp,
+            bevelEnabled: false,
+            curveSegments: 32,
+          });
+          geo.translate(0, 0, -esp / 2);
+        } else if (!furos.length) {
+          geo = new THREE.BoxGeometry(w, h, esp);
+          geo.translate(0, 0, 0);
+        } else {
+          const s = new THREE.Shape();
+          s.moveTo(-w / 2, -h / 2);
+          s.lineTo(w / 2, -h / 2);
+          s.lineTo(w / 2, h / 2);
+          s.lineTo(-w / 2, h / 2);
+          s.closePath();
+          furos.forEach((f) => {
+            const c = new THREE.Path();
+            c.absarc(f.cx, f.cy, f.r, 0, Math.PI * 2, true);
+            s.holes.push(c);
+          });
+          geo = new THREE.ExtrudeGeometry(s, {
+            depth: esp,
+            bevelEnabled: false,
+            curveSegments: 48,
+          });
+          geo.translate(0, 0, -esp / 2);
+        }
+        // orienta: o plano da peça fica perpendicular ao eixo indicado
+        if (p.place.eixo === "y") geo.rotateX(-Math.PI / 2);
+        if (p.place.eixo === "x") geo.rotateY(Math.PI / 2);
+        return geo;
+      }
+
+      /* ---- logo: imagem -> textura ---- */
+      // Redimensiona (máx. 1024px) e, se pedido, transforma o fundo branco em transparente.
+      // O "color to alpha" preserva a cor real das bordas suavizadas, sem aquele contorno branco.
+      function processarLogo() {
+        if (!LOGO.img) return;
+        const MAX = 1024;
+        const iw = LOGO.img.naturalWidth || LOGO.img.width || 512;
+        const ih = LOGO.img.naturalHeight || LOGO.img.height || 512;
+        const k = Math.min(1, MAX / Math.max(iw, ih));
+        const w = Math.max(1, Math.round(iw * k)),
+          h = Math.max(1, Math.round(ih * k));
+
+        const c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        const ctx = c.getContext("2d");
+        ctx.drawImage(LOGO.img, 0, 0, w, h);
+
+        if (LOGO.semFundo) {
+          const im = ctx.getImageData(0, 0, w, h),
+            d = im.data;
+          for (let i = 0; i < d.length; i += 4) {
+            if (d[i + 3] < 255) continue; // já tem transparência própria
+            const m = Math.min(d[i], d[i + 1], d[i + 2]);
+            const a = 1 - m / 255; // "quanto de tinta" existe neste pixel
+            if (a < 0.03) {
+              d[i + 3] = 0;
+              continue;
+            }
+            d[i] = Math.max(0, Math.min(255, (d[i] - 255 * (1 - a)) / a));
+            d[i + 1] = Math.max(
+              0,
+              Math.min(255, (d[i + 1] - 255 * (1 - a)) / a),
+            );
+            d[i + 2] = Math.max(
+              0,
+              Math.min(255, (d[i + 2] - 255 * (1 - a)) / a),
+            );
+            d[i + 3] = Math.min(255, a * 2.5 * 255); // reforça a opacidade das cores claras
+          }
+          ctx.putImageData(im, 0, 0);
+        }
+
+        if (LOGO.tex) LOGO.tex.dispose();
+        const tex = new THREE.CanvasTexture(c);
+        tex.encoding = THREE.sRGBEncoding;
+        tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        LOGO.tex = tex;
+        LOGO.aspecto = w / h;
+      }
+
+      let meshes = [];
+      let itemMeshes = [];
+      let logoMeshes = [];
+      function reconstruir() {
+        // limpa a geometria anterior (evita vazamento de memória na GPU)
+        meshes.forEach((m) => {
+          grupo.remove(m);
+          m.geometry.dispose();
+        });
+        meshes = [];
+        logoMeshes.forEach((m) => {
+          grupo.remove(m);
+          m.geometry.dispose();
+          m.material.dispose();
+        }); // a textura é reaproveitada
+        logoMeshes = [];
+        itemMeshes.forEach((o) => {
+          grupo.remove(o);
+          o.traverse((n) => {
+            if (n.geometry) n.geometry.dispose();
+            if (n.material) n.material.dispose();
+          });
+        });
+        itemMeshes = [];
+
+        atualizarMaterial();
+        const { pecas, itens } = gerarPecas(cfg);
+        pecas.forEach((p) => {
+          const m = new THREE.Mesh(geoDaPeca(p), material);
+          m.position.set(p.place.x, p.place.y, p.place.z);
+          m.castShadow = true;
+          m.receiveShadow = true;
+          grupo.add(m);
+          meshes.push(m);
+        });
+
+        // logo: um plano fino colado na face EXTERNA de cada lateral do porta-guardanapo
+        if (LOGO.tex) {
+          pecas
+            .filter(
+              (p) => p.id === "guardanapo-lat-e" || p.id === "guardanapo-lat-d",
+            )
+            .forEach((p) => {
+              const dir = p.id === "guardanapo-lat-d";
+              if (dir ? !LOGO.dir : !LOGO.esq) return;
+
+              // cabe dentro da lateral (p.w = profundidade, p.h = altura) mantendo a proporção
+              const f = LOGO.tamanho / 100;
+              let lw = p.w * f,
+                lh = lw / LOGO.aspecto;
+              if (lh > p.h * f) {
+                lh = p.h * f;
+                lw = lh * LOGO.aspecto;
+              }
+
+              const sobra = (p.h - lh) / 2; // folga vertical disponível
+              const sinal = dir ? 1 : -1; // +x direita, -x esquerda
+              const mat = new THREE.MeshStandardMaterial({
+                map: LOGO.tex,
+                transparent: true,
+                roughness: 0.7,
+                metalness: 0,
+                depthWrite: false,
+                polygonOffset: true,
+                polygonOffsetFactor: -2,
+                polygonOffsetUnits: -2,
+              });
+              const m = new THREE.Mesh(new THREE.PlaneGeometry(lw, lh), mat);
+              m.position.set(
+                p.place.x + sinal * (p.place.esp / 2 + 0.2), // face externa + 0,2 mm p/ não brigar com a madeira
+                p.place.y + (LOGO.posY / 100) * sobra,
+                p.place.z,
+              );
+              m.rotation.y = (sinal * Math.PI) / 2; // vira o plano p/ fora, sem espelhar a imagem
+              m.receiveShadow = true;
+              grupo.add(m);
+              logoMeshes.push(m);
+            });
+        }
+
+        if (cfg.mostrarConteudo) {
+          itens.forEach((it) => {
+            const g = criarItem(
+              it.chave,
+              it.largura,
+              it.alturaDisp,
+              it.profDisp,
+            );
+            g.position.set(it.x, it.y, it.z);
+            g.traverse((n) => {
+              if (n.isMesh) {
+                n.castShadow = true;
+                n.receiveShadow = true;
+              }
+            });
+            grupo.add(g);
+            itemMeshes.push(g);
+          });
+        }
+      }
+
+      /* ---- órbita simples (sem dependências externas) ---- */
+      const orb = {
+        az: -0.6,
+        pol: 1.12,
+        dist: 430,
+        alvo: new THREE.Vector3(0, 40, 0),
+      };
+      function posicionarCamera() {
+        const { az, pol, dist, alvo } = orb;
+        camera.position.set(
+          alvo.x + dist * Math.sin(pol) * Math.sin(az),
+          alvo.y + dist * Math.cos(pol),
+          alvo.z + dist * Math.sin(pol) * Math.cos(az),
+        );
+        camera.lookAt(alvo);
+      }
+      (function controles() {
+        const el = renderer.domElement;
+        let ativo = false,
+          px = 0,
+          py = 0,
+          pinch = 0;
+        const pos = (e) =>
+          e.touches
+            ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
+            : { x: e.clientX, y: e.clientY };
+        const down = (e) => {
+          ativo = true;
+          const p = pos(e);
+          px = p.x;
+          py = p.y;
+        };
+        const move = (e) => {
+          if (e.touches && e.touches.length === 2) {
+            const d = Math.hypot(
+              e.touches[0].clientX - e.touches[1].clientX,
+              e.touches[0].clientY - e.touches[1].clientY,
+            );
+            if (pinch)
+              orb.dist = Math.min(1100, Math.max(180, (orb.dist * pinch) / d));
+            pinch = d;
+            e.preventDefault();
+            return;
+          }
+          if (!ativo) return;
+          const p = pos(e);
+          orb.az -= (p.x - px) * 0.008;
+          orb.pol = Math.min(
+            1.53,
+            Math.max(0.12, orb.pol - (p.y - py) * 0.007),
+          );
+          px = p.x;
+          py = p.y;
+          e.preventDefault();
+        };
+        const up = () => {
+          ativo = false;
+          pinch = 0;
+        };
+        el.addEventListener("mousedown", down);
+        addEventListener("mousemove", move);
+        addEventListener("mouseup", up);
+        el.addEventListener("touchstart", down, { passive: true });
+        el.addEventListener("touchmove", move, { passive: false });
+        el.addEventListener("touchend", up);
+        el.addEventListener(
+          "wheel",
+          (e) => {
+            orb.dist = Math.min(1100, Math.max(180, orb.dist + e.deltaY * 0.5));
+            e.preventDefault();
+          },
+          { passive: false },
+        );
+      })();
+
+      function redimensionar() {
+        const w = wrap.clientWidth,
+          h = wrap.clientHeight;
+        if (!w || !h) return;
+        renderer.setSize(w, h, false);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+      }
+      addEventListener("resize", redimensionar);
+
+      let giroAuto = true;
+      renderer.domElement.addEventListener("pointerdown", () => {
+        giroAuto = false;
+      });
+      function loop() {
+        requestAnimationFrame(loop);
+        if (giroAuto) orb.az += 0.0022;
+        posicionarCamera();
+        chao.material.color.copy(corTema("--scene-bot"));
+        renderer.setClearColor(corTema("--scene-top"), 1);
+        renderer.render(scene, camera);
+      }
+
+      /* =========================================================================
+   4. INTERFACE
+   ========================================================================= */
+      const $ = (id) => document.getElementById(id);
+
+      function renderModulos() {
+        const { frente, tras } = dividirEmLados(cfg.modulos);
+        [
+          ["frente", frente],
+          ["tras", tras],
+        ].forEach(([ladoNome, lista]) => {
+          const box = $("mods-" + ladoNome);
+          if (!lista.length) {
+            box.innerHTML = '<div class="empty">Vazio.</div>';
+          } else {
+            box.innerHTML = lista
+              .map(({ k, idx }) => {
+                const m = CATALOGO[k];
+                return `<div class="mod">
+          <span class="name">${m.rotulo}</span>
+          <span class="w">${m.largura}mm</span>
+          <button class="icon-btn" data-up="${idx}" ${idx === 0 ? "disabled" : ""} title="Mover">&#8592;</button>
+          <button class="icon-btn" data-dn="${idx}" ${idx === cfg.modulos.length - 1 ? "disabled" : ""} title="Mover">&#8594;</button>
+          <button class="icon-btn del" data-rm="${idx}" title="Remover">&times;</button>
+        </div>`;
+              })
+              .join("");
+          }
+          box.querySelectorAll("[data-rm]").forEach(
+            (b) =>
+              (b.onclick = () => {
+                cfg.modulos.splice(+b.dataset.rm, 1);
+                tudo();
+              }),
+          );
+          box.querySelectorAll("[data-up]").forEach(
+            (b) =>
+              (b.onclick = () => {
+                const i = +b.dataset.up;
+                [cfg.modulos[i - 1], cfg.modulos[i]] = [
+                  cfg.modulos[i],
+                  cfg.modulos[i - 1],
+                ];
+                tudo();
+              }),
+          );
+          box.querySelectorAll("[data-dn]").forEach(
+            (b) =>
+              (b.onclick = () => {
+                const i = +b.dataset.dn;
+                [cfg.modulos[i + 1], cfg.modulos[i]] = [
+                  cfg.modulos[i],
+                  cfg.modulos[i + 1],
+                ];
+                tudo();
+              }),
+          );
+        });
+      }
+
+      $("add-modulo").innerHTML = Object.entries(CATALOGO)
+        .filter(([k]) => k !== "guardanapo")
+        .map(([k, m]) => `<button data-add="${k}">+ ${m.rotulo}</button>`)
+        .join("");
+      $("add-modulo")
+        .querySelectorAll("[data-add]")
+        .forEach(
+          (b) =>
+            (b.onclick = () => {
+              const k = b.dataset.add,
+                u = unidadesDe(k);
+              const { uf, ut } = dividirEmLados(cfg.modulos);
+              const cabe =
+                uf + u <= CAPACIDADE_LADO || ut + u <= CAPACIDADE_LADO;
+              if (cabe) {
+                cfg.modulos.push(k);
+                tudo();
+              }
+            }),
+        );
+
+      function atualizarBotoesAdd() {
+        const { uf, ut } = dividirEmLados(cfg.modulos);
+        $("add-modulo")
+          .querySelectorAll("[data-add]")
+          .forEach((b) => {
+            const u = unidadesDe(b.dataset.add);
+            const cabe = uf + u <= CAPACIDADE_LADO || ut + u <= CAPACIDADE_LADO;
+            b.disabled = !cabe;
+            b.style.opacity = cabe ? "" : ".35";
+            b.style.cursor = cabe ? "" : "default";
+          });
+      }
+
+      $("sw").innerHTML = ACABAMENTOS.map(
+        (a, i) =>
+          `<button class="sw" data-ac="${i}" title="${a.nome}"
+     style="background:#${a.cor.toString(16).padStart(6, "0")}"
+     aria-pressed="${i === cfg.acabamento}"></button>`,
+      ).join("");
+      $("sw")
+        .querySelectorAll("[data-ac]")
+        .forEach(
+          (b) =>
+            (b.onclick = () => {
+              cfg.acabamento = +b.dataset.ac;
+              $("sw")
+                .querySelectorAll("[data-ac]")
+                .forEach((o) =>
+                  o.setAttribute("aria-pressed", o.dataset.ac === b.dataset.ac),
+                );
+              tudo();
+            }),
+        );
+
+      [["s-h", "altura", "v-h"]].forEach(([sid, chave, vid]) => {
+        const s = $(sid);
+        s.value = cfg[chave];
+        s.addEventListener("input", () => {
+          cfg[chave] = +s.value;
+          $(vid).textContent = s.value;
+          tudo();
+        });
+      });
+
+      $("chk-conteudo").checked = cfg.mostrarConteudo;
+      $("chk-conteudo").addEventListener("change", () => {
+        cfg.mostrarConteudo = $("chk-conteudo").checked;
+        tudo();
+      });
+
+      /* ---- logo: upload, arrastar/soltar e ajustes ---- */
+      const TAM_MAX_ARQUIVO = 10 * 1024 * 1024; // 10 MB
+      let logoUrl = null;
+
+      function erroLogo(msg) {
+        const el = $("logo-err");
+        el.textContent = msg || "";
+        el.style.display = msg ? "block" : "none";
+      }
+
+      function atualizarPainelLogo() {
+        const tem = !!LOGO.img;
+        $("logo-info").classList.toggle("on", tem);
+        $("logo-nome").textContent = LOGO.nome;
+        $("logo-nome").title = LOGO.nome;
+        $("logo-drop").querySelector("span:last-child").firstChild.textContent =
+          tem ? "Trocar logo" : "Enviar logo";
+      }
+
+      function textoPosY(v) {
+        return v === 0 ? "centro" : v > 0 ? "acima " + v : "abaixo " + -v;
+      }
+
+      function carregarLogo(arquivo) {
+        erroLogo("");
+        if (!arquivo) return;
+        if (!/^image\//.test(arquivo.type)) {
+          erroLogo("Esse arquivo não é uma imagem. Use PNG, JPG, SVG ou WebP.");
+          return;
+        }
+        if (arquivo.size > TAM_MAX_ARQUIVO) {
+          erroLogo("Imagem muito grande. O limite é 10 MB.");
+          return;
+        }
+
+        const url = URL.createObjectURL(arquivo);
+        const img = new Image();
+        img.onload = () => {
+          if (logoUrl) URL.revokeObjectURL(logoUrl);
+          logoUrl = url;
+          LOGO.img = img;
+          LOGO.nome = arquivo.name;
+          $("logo-thumb").src = url;
+          processarLogo();
+          atualizarPainelLogo();
+          orb.az = 1.15; // gira a câmera para a lateral direita, onde a logo aparece
+          reconstruir();
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          erroLogo("Não consegui abrir essa imagem. Tente outro arquivo.");
+        };
+        img.src = url;
+      }
+
+      function removerLogo() {
+        if (LOGO.tex) {
+          LOGO.tex.dispose();
+          LOGO.tex = null;
+        }
+        if (logoUrl) {
+          URL.revokeObjectURL(logoUrl);
+          logoUrl = null;
+        }
+        LOGO.img = null;
+        LOGO.nome = "";
+        $("logo-input").value = "";
+        erroLogo("");
+        atualizarPainelLogo();
+        reconstruir();
+      }
+
+      const dropBtn = $("logo-drop");
+      dropBtn.addEventListener("click", () => $("logo-input").click());
+      $("logo-input").addEventListener("change", (e) =>
+        carregarLogo(e.target.files[0]),
+      );
+      ["dragenter", "dragover"].forEach((ev) =>
+        dropBtn.addEventListener(ev, (e) => {
+          e.preventDefault();
+          dropBtn.classList.add("over");
+        }),
+      );
+      ["dragleave", "drop"].forEach((ev) =>
+        dropBtn.addEventListener(ev, (e) => {
+          e.preventDefault();
+          dropBtn.classList.remove("over");
+        }),
+      );
+      dropBtn.addEventListener("drop", (e) =>
+        carregarLogo(e.dataTransfer.files[0]),
+      );
+      $("logo-rm").addEventListener("click", removerLogo);
+
+      // os ajustes chamam reconstruir() direto (e não tudo()) para não resetar o zoom da câmera
+      $("s-logo-tam").value = LOGO.tamanho;
+      $("v-logo-tam").textContent = LOGO.tamanho;
+      $("s-logo-tam").addEventListener("input", (e) => {
+        LOGO.tamanho = +e.target.value;
+        $("v-logo-tam").textContent = e.target.value;
+        reconstruir();
+      });
+      $("s-logo-y").value = LOGO.posY;
+      $("v-logo-y").textContent = textoPosY(LOGO.posY);
+      $("s-logo-y").addEventListener("input", (e) => {
+        LOGO.posY = +e.target.value;
+        $("v-logo-y").textContent = textoPosY(LOGO.posY);
+        reconstruir();
+      });
+      $("chk-logo-e").checked = LOGO.esq;
+      $("chk-logo-e").addEventListener("change", (e) => {
+        LOGO.esq = e.target.checked;
+        reconstruir();
+      });
+      $("chk-logo-d").checked = LOGO.dir;
+      $("chk-logo-d").addEventListener("change", (e) => {
+        LOGO.dir = e.target.checked;
+        reconstruir();
+      });
+      $("chk-logo-fundo").checked = LOGO.semFundo;
+      $("chk-logo-fundo").addEventListener("change", (e) => {
+        LOGO.semFundo = e.target.checked;
+        processarLogo();
+        reconstruir();
+      });
+
+      /* ---- modo claro / escuro ---- */
+      (function () {
+        const raiz = document.documentElement,
+          mq = matchMedia("(prefers-color-scheme: dark)");
+        const atual = () =>
+          raiz.getAttribute("data-theme") || (mq.matches ? "dark" : "light");
+        // se o cliente ainda não escolheu, o data-theme fica vazio e vale a preferência do sistema.
+        // aqui só marcamos o tema efetivo para o ícone (sol/lua) aparecer certo:
+        if (!raiz.getAttribute("data-theme") && mq.matches)
+          raiz.setAttribute("data-theme", "dark");
+        $("btn-tema").addEventListener("click", () => {
+          const novo = atual() === "dark" ? "light" : "dark";
+          raiz.setAttribute("data-theme", novo);
+          try {
+            localStorage.setItem("tema", novo);
+          } catch (e) {}
+        });
+      })();
+
+      /* ---- mockup: "foto" do modelo 3D configurado ---- */
+      let mockupUrl = null;
+      function gerarMockup() {
+        const btn = $("btn-mockup");
+        btn.disabled = true;
+        const MW = 1600,
+          MH = 1200; // resolução final da imagem (4:3)
+        const prAntigo = renderer.getPixelRatio();
+
+        // renderiza um quadro em alta resolução, sempre com fundo claro (independe do tema escuro/claro do site)
+        renderer.setPixelRatio(1);
+        renderer.setSize(MW, MH, false);
+        camera.aspect = MW / MH;
+        camera.updateProjectionMatrix();
+        chao.material.color.set("#cfc8bc");
+        renderer.setClearColor(new THREE.Color("#e8e3da"), 1);
+        posicionarCamera();
+        renderer.render(scene, camera);
+
+        // toBlob captura o quadro no momento da chamada; só depois voltamos ao tamanho normal
+        renderer.domElement.toBlob((blob) => {
+          if (!blob) {
+            alert("Não foi possível gerar o mockup. Tente novamente.");
+            return;
+          }
+          if (mockupUrl) URL.revokeObjectURL(mockupUrl);
+          mockupUrl = URL.createObjectURL(blob);
+          $("mk-img").src = mockupUrl;
+          $("mk-baixar").href = mockupUrl;
+          $("mk-modal").classList.add("on");
+          $("mk-baixar").focus();
+        }, "image/png");
+
+        renderer.setPixelRatio(prAntigo);
+        redimensionar();
+        btn.disabled = false;
+      }
+      function fecharMockup() {
+        $("mk-modal").classList.remove("on");
+      }
+      $("btn-mockup").addEventListener("click", gerarMockup);
+      $("mk-fechar").addEventListener("click", fecharMockup);
+      $("mk-modal").addEventListener("click", (e) => {
+        if (e.target === $("mk-modal")) fecharMockup();
+      });
+      addEventListener("keydown", (e) => {
+        if (e.key === "Escape") fecharMockup();
+      });
+
+      function tudo() {
+        const { W, alturaMax } = gerarPecas(cfg);
+        renderModulos();
+        atualizarBotoesAdd();
+        reconstruir();
+        $("v-h").textContent = cfg.altura;
+        orb.alvo.y = alturaMax * 0.42;
+        orb.dist = Math.max(330, Math.max(W, alturaMax * 3) * 1.55);
+      }
+
+      tudo();
+      redimensionar();
+      loop();
+      setTimeout(redimensionar, 60);
+    </script>
+  </body>
+</html>
